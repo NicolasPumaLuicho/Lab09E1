@@ -65,15 +65,36 @@ import com.example.lab09e1.ui.theme.NaranjaOscuro
 import com.example.lab09e1.ui.theme.NaranjaPrincipal
 import com.example.lab09e1.ui.theme.RojoDescuento
 import com.example.lab09e1.ui.theme.VerdeStock
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+
+@Composable
+fun MensajeErrorConexion(modifier: Modifier = Modifier, onReintentar: () -> Unit) {
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        Text("No se pudo conectar con la API. Revisa tu conexión.", color = MarronSuave)
+        Spacer(Modifier.height(8.dp))
+        Button(onClick = onReintentar) {
+            Text("Reintentar")
+        }
+    }
+}
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ScreenInicio(navController: NavHostController, servicio: ProductApiService) {
     var productos by remember { mutableStateOf<List<ProductModel>>(emptyList()) }
-    LaunchedEffect(Unit) {
-        productos = servicio.getProducts().products
+    var errorConexion by remember { mutableStateOf(false) }
+    var reintento by remember { mutableStateOf(0) }
+    LaunchedEffect(reintento) {
+        errorConexion = false
+        try {
+            productos = servicio.getProducts().products
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            errorConexion = true
+        }
     }
     val destacados = productos.sortedByDescending { it.rating }.take(8)
     val categorias = productos.map { it.category }.distinct().sorted()
@@ -133,7 +154,11 @@ fun ScreenInicio(navController: NavHostController, servicio: ProductApiService) 
         )
         Spacer(Modifier.height(10.dp))
         if (destacados.isEmpty()) {
-            Text("Cargando productos...", color = MarronSuave)
+            if (errorConexion) {
+                MensajeErrorConexion(Modifier.padding(vertical = 8.dp)) { reintento++ }
+            } else {
+                Text("Cargando productos...", color = MarronSuave)
+            }
         } else {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 items(destacados) { p ->
@@ -231,8 +256,17 @@ fun TarjetaDestacado(producto: ProductModel, onClick: () -> Unit) {
 fun ScreenProductos(navController: NavHostController, servicio: ProductApiService) {
     var productos by remember { mutableStateOf<List<ProductModel>>(emptyList()) }
     var texto by remember { mutableStateOf("") }
-    LaunchedEffect(Unit) {
-        productos = servicio.getProducts().products
+    var errorConexion by remember { mutableStateOf(false) }
+    var reintento by remember { mutableStateOf(0) }
+    LaunchedEffect(reintento) {
+        errorConexion = false
+        try {
+            productos = servicio.getProducts().products
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            errorConexion = true
+        }
     }
     val filtrados = remember(texto, productos) {
         if (texto.isBlank()) productos
@@ -271,7 +305,11 @@ fun ScreenProductos(navController: NavHostController, servicio: ProductApiServic
         )
         Spacer(Modifier.height(8.dp))
         if (productos.isEmpty()) {
-            Text("Cargando productos...", color = MarronSuave)
+            if (errorConexion) {
+                MensajeErrorConexion(Modifier.padding(vertical = 8.dp)) { reintento++ }
+            } else {
+                Text("Cargando productos...", color = MarronSuave)
+            }
         } else {
             LazyColumn(
                 Modifier.weight(1f),
@@ -395,19 +433,32 @@ fun Estrellas(rating: Double, modifier: Modifier = Modifier) {
 @Composable
 fun ScreenProducto(navController: NavHostController, servicio: ProductApiService, id: Int) {
     var producto by remember { mutableStateOf<ProductModel?>(null) }
+    var errorConexion by remember { mutableStateOf(false) }
+    var reintento by remember { mutableStateOf(0) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
-    LaunchedEffect(Unit) {
-        producto = servicio.getProductById(id)
+    LaunchedEffect(reintento) {
+        errorConexion = false
+        try {
+            producto = servicio.getProductById(id)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            errorConexion = true
+        }
     }
     Box(Modifier.fillMaxSize()) {
         val p = producto
         if (p == null) {
-            Text(
-                "Cargando producto...",
-                Modifier.align(Alignment.Center),
-                color = MarronSuave
-            )
+            if (errorConexion) {
+                MensajeErrorConexion(Modifier.align(Alignment.Center)) { reintento++ }
+            } else {
+                Text(
+                    "Cargando producto...",
+                    Modifier.align(Alignment.Center),
+                    color = MarronSuave
+                )
+            }
         } else {
             Column(
                 Modifier
